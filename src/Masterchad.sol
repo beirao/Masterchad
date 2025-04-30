@@ -4,8 +4,11 @@ pragma solidity 0.8.23;
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/solady/src/utils/SafeTransferLib.sol";
 import "lib/solady/src/auth/Ownable.sol";
+import {IERC20Mintable} from "./interfaces/IERC20.sol";
 
 contract Masterchad is Ownable {
+    using SafeTransferLib for address;
+
     // Structs
 
     // struct UserInfo {
@@ -27,12 +30,33 @@ contract Masterchad is Ownable {
     uint256 private constant MAX_ALLOCATION_POINT = 18446744073709551615; // Set to type(uint64.max).
 
     uint256 private constant _TOKEN_SLOT = 0x9cf069ec1f46db069f;
-    uint256 private constant _ADMIN_SLOT = 0x6ba677f1cdbe0f40f1;
     uint256 private constant _TOKEN_PER_BLOCK_SLOT = 0xdcf9ea19e9d4baeda8;
     uint256 private constant _TOTAL_ALLOC_POINT_SLOT = 0x0d8e8be0eec8ca51f2;
     uint256 private constant _START_BLOCK_SLOT = 0x25e5d9d7ba4b9cd642;
 
-    uint256 private constant _POOL_INFO_SEED_SLOT = 0x070868d5; // Mapping/Array of PoolInfo. The size of the array is stored in _POOL_INFO_MASTER_SLOT.
+    /**
+     * @dev set:
+     *          let poolInfoSize_ := sload(_POOL_INFO_SEED_SLOT)
+     *          sstore(_POOL_INFO_SEED_SLOT, add(poolInfoSize_, 1))
+     *          mstore(0x20, _POOL_INFO_SEED_SLOT)
+     *          mstore(0x1c, poolInfoSize_)
+     *
+     *          let key_ := keccak256(0x1c, 0x05)
+     *          sstore(key_, add(shl(96, _lpToken), add(shl(32, _allocPoint), lastRewardBlock_)))
+     *          sstore(add(key_, 0x20), 0)
+     */
+    uint256 private constant _POOL_INFO_SEED_SLOT = 0x070868d5; // Mapping of PoolInfo. The size of the mapping is stored in _POOL_INFO_MASTER_SLOT.
+
+    /**
+     * @dev set:
+     *          mstore(0x05, _pid)
+     *          mstore(0x04, _USER_INFO_SEED_SLOT)
+     *          mstore(0x00, _user)
+     *
+     *          let key_ := keccak256(0x0d, 0x19)
+     *          sstore(key_, _amount)
+     *          sstore(add(key_, 0x20), _rewardDebt)
+     */
     uint256 private constant _USER_INFO_SEED_SLOT = 0x1766266e; // Mapping of UserInfo
 
     // Errors
@@ -44,7 +68,7 @@ contract Masterchad is Ownable {
 
     /// @dev `keccak256(bytes("Masterchad__MAX_ALLOCATION_POINT_REACHED()"))`.
     error Masterchad__MAX_ALLOCATION_POINT_REACHED();
-    
+
     uint256 private constant _ERROR_MAX_ALLOCATION_POINT_REACHED = 0xa78c0319;
 
     // Events
@@ -66,11 +90,12 @@ contract Masterchad is Ownable {
 
         assembly {
             sstore(_TOKEN_SLOT, _token)
-            sstore(_ADMIN_SLOT, _admin)
             sstore(_TOKEN_PER_BLOCK_SLOT, _tokenPerBlock)
             sstore(_START_BLOCK_SLOT, _startBlock)
         }
     }
+
+    /// ======== onlyOwner ========
 
     function add(uint256 _allocPoint, address _lpToken) public onlyOwner {
         assembly {
@@ -104,11 +129,11 @@ contract Masterchad is Ownable {
             // Calculating the key for the poolInfo.
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, poolInfoSize_)
-            let key_ := keccak256(0x1c, 0x05)
+            let poolInfoKey_ := keccak256(0x1c, 0x05)
 
             // Pack and Store the poolInfo.
-            sstore(key_, add(shl(96, _lpToken), add(shl(32, _allocPoint), lastRewardBlock_)))
-            sstore(add(key_, 0x20), 0)
+            sstore(poolInfoKey_, add(shl(96, _lpToken), add(shl(32, _allocPoint), lastRewardBlock_)))
+            sstore(add(poolInfoKey_, 0x20), 0)
         }
     }
 
@@ -122,23 +147,126 @@ contract Masterchad is Ownable {
 
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, _pid)
-            let key_ := keccak256(0x1c, 0x05)
+            let poolInfoKey_ := keccak256(0x1c, 0x05)
 
-            let infoPoolSlot0_ := sload(key_)
-            let allocPoint_ := shr(32, infoPoolSlot0_)
+            let poolInfoSlot0_ := sload(poolInfoKey_)
+            let allocPoint_ := shr(32, poolInfoSlot0_)
 
             // Update total allocation point.
             let totalAllocationPoint_ := sload(_TOTAL_ALLOC_POINT_SLOT)
             sstore(_TOTAL_ALLOC_POINT_SLOT, add(sub(totalAllocationPoint_, allocPoint_), _allocPoint))
 
-            // // Update pool info. // TODO
-            // let mask2_ := shl(32, _allocPoint) 
-            // let mask_ := and(infoPoolSlot0_, shl(32, 0x0000000000000000000000000000000000000000ffffffffffffffff00000000)) 
-            // sstore(key_, or(infoPoolSlot0_, mask_))
+            // Update pool info.
+            let mask_ := shl(32, _allocPoint)
+            poolInfoSlot0_ := and(poolInfoSlot0_, 0xffffffffffffffffffffffffffffffffffffffff0000000000000000ffffffff)
+            sstore(poolInfoKey_, or(poolInfoSlot0_, mask_))
         }
     }
 
-    /// ======== DEBUGGING ========
+    function massUpdatePools() public {
+        uint256 poolInfoSize_;
+        assembly {
+            poolInfoSize_ := sload(_POOL_INFO_SEED_SLOT)
+        }
+
+        for (uint256 i; i < poolInfoSize_; ++i) {
+            updatePool(i);
+        }
+    }
+
+    function updatePool(uint256 _pid) public {
+        uint256 tokenReward_;
+
+        assembly {
+            mstore(0x20, _POOL_INFO_SEED_SLOT)
+            mstore(0x1c, _pid)
+            let poolInfoKeySlot0_ := keccak256(0x1c, 0x05)
+            let poolInfoSlot0_ := sload(poolInfoKeySlot0_)
+            let lastRewardBlock_ := shr(224, shl(224, poolInfoSlot0_))
+
+            // block.number > pool.lastRewardBlock
+            if gt(number(), lastRewardBlock_) {
+                let lpToken_ := shr(96, poolInfoSlot0_)
+                mstore(0x00, 0x70a08231) // 0x70a08231 ::: balanceOf(address)
+                mstore(0x20, address())
+
+                let success_ := staticcall(gas(), lpToken_, 0x1c, 0x24, 0x00, 0x20)
+                if iszero(success_) { revert(0x00, 0x00) }
+                let lpSupply_ := mload(0x00)
+
+                switch lpSupply_
+                case 0 {
+                    poolInfoSlot0_ :=
+                        and(poolInfoSlot0_, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000)
+                    sstore(poolInfoKeySlot0_, or(poolInfoSlot0_, number()))
+                }
+                default {
+                    let multiplier_ := sub(number(), lastRewardBlock_)
+                    tokenReward_ := div(mul(multiplier_, mul(sload(_TOKEN_PER_BLOCK_SLOT), WAD)), lpSupply_)
+
+                    // Update pool.accTokenPerShare.
+                    let poolInfoKeySlot1_ := add(poolInfoKeySlot0_, 0x20)
+                    sstore(poolInfoKeySlot1_, add(sload(poolInfoKeySlot1_), div(mul(tokenReward_, WAD), lpSupply_)))
+
+                    // Update pool.lastRewardBlock.
+                    poolInfoSlot0_ :=
+                        and(poolInfoSlot0_, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000)
+                    sstore(poolInfoKeySlot0_, or(poolInfoSlot0_, number()))
+                }
+            }
+        }
+
+        if (tokenReward_ != 0) {
+            address token_;
+            assembly {
+                token_ := sload(_TOKEN_SLOT)
+            }
+            IERC20Mintable(token_).mint(address(this), tokenReward_);
+        }
+    }
+
+    function deposit(uint256 _pid, uint256 _amount) public {
+        updatePool(_pid);
+        
+        assembly {
+            
+        }
+    }
+
+    function withdraw(uint256 _pid, uint256 _amount) public {
+        updatePool(_pid);
+
+        assembly {
+            
+        }
+    }
+
+    function safeTokenTransfer(address _to, uint256 _amount) internal {
+        uint256 tokenBal_;
+        address token_;
+        assembly {
+            token_ := sload(_TOKEN_SLOT)
+
+            mstore(0x00, 0x70a08231) // 0x70a08231 ::: balanceOf(address)
+            mstore(0x20, address())
+
+            let success_ := staticcall(gas(), token_, 0x1c, 0x24, 0x00, 0x20)
+            if iszero(success_) { revert(0x00, 0x00) }
+            tokenBal_ := mload(0x00)
+        }
+
+        // Using Solady gas efficient SafeTransferLib.
+        if (_amount > tokenBal_) {
+            token_.safeTransfer(_to, tokenBal_);
+        } else {
+            token_.safeTransfer(_to, _amount);
+        }
+    }
+
+    /// ======== onlyOwner ========
+
+    /// ======== Views ========
+
     function readStorage(uint256 _slot) public view returns (uint256 ret_) {
         assembly {
             ret_ := sload(_slot)
@@ -148,19 +276,50 @@ contract Masterchad is Ownable {
     function getPoolInfo(uint256 _pid)
         public
         view
-        returns (uint256 size_, address lpToken_, uint64 allocPoint_, uint32 lastRewardBlock_, uint256 accTokenPerShare_)
+        returns (
+            uint256 size_,
+            address lpToken_,
+            uint64 allocPoint_,
+            uint32 lastRewardBlock_,
+            uint256 accTokenPerShare_
+        )
     {
         assembly {
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, _pid)
-            let key_ := keccak256(0x1c, 0x05)
+            let poolInfoKey_ := keccak256(0x1c, 0x05)
 
-            let infoPoolSlot1_ := sload(key_)
+            let infoPoolSlot1_ := sload(poolInfoKey_)
             size_ := sload(_POOL_INFO_SEED_SLOT)
             lpToken_ := shr(96, infoPoolSlot1_)
             allocPoint_ := shr(32, infoPoolSlot1_)
             lastRewardBlock_ := infoPoolSlot1_
-            accTokenPerShare_ := sload(add(key_, 0x20))
+            accTokenPerShare_ := sload(add(poolInfoKey_, 0x20))
+        }
+    }
+
+    function getUserInfo(uint256 _pid, address _user) public view returns (int256 amount_, uint256 rewardDebt_) {
+        assembly {
+            mstore(0x05, _pid)
+            mstore(0x04, _USER_INFO_SEED_SLOT)
+            mstore(0x00, _user)
+
+            let userInfoKey_ := keccak256(0x0d, 0x19)
+            amount_ := sload(userInfoKey_)
+            rewardDebt_ := sload(add(userInfoKey_, 0x20))
+        }
+    }
+
+    // todo ======== DEBUG TO DELETE ========
+    function setUserInfo(uint256 _pid, address _user, int256 _amount, uint256 _rewardDebt) public {
+        assembly {
+            mstore(0x05, _pid)
+            mstore(0x04, _USER_INFO_SEED_SLOT)
+            mstore(0x00, _user)
+
+            let userInfoKey_ := keccak256(0x0d, 0x19)
+            sstore(userInfoKey_, _amount)
+            sstore(add(userInfoKey_, 0x20), _rewardDebt)
         }
     }
 }

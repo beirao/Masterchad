@@ -35,8 +35,6 @@ contract Masterchef is Ownable {
 
     // The TOKEN TOKEN!
     IERC20 public token;
-    // Dev address.
-    address public admin;
     // TOKEN tokens created per block.
     uint256 public tokenPerBlock;
     // Total allocation poitns. Must be the sum of all allocation points in all pools.
@@ -54,7 +52,6 @@ contract Masterchef is Ownable {
 
     constructor(IERC20 _token, address _admin, uint256 _tokenPerBlock, uint256 _startBlock) Ownable(_admin) {
         token = _token;
-        admin = _admin;
         tokenPerBlock = _tokenPerBlock;
         startBlock = _startBlock;
     }
@@ -71,21 +68,6 @@ contract Masterchef is Ownable {
     function set(uint256 _pid, uint256 _allocPoint) public onlyOwner {
         totalAllocPoint = totalAllocPoint - poolInfo[_pid].allocPoint + _allocPoint;
         poolInfo[_pid].allocPoint = _allocPoint;
-    }
-
-    // View function to see pending TOKENs on frontend.
-    function pendingToken(uint256 _pid, address _user) external view returns (uint256) {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_user];
-        uint256 accTokenPerShare = pool.accTokenPerShare;
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if (block.number > pool.lastRewardBlock && lpSupply != 0) {
-            uint256 multiplier = block.number - pool.lastRewardBlock;
-            uint256 tokenReward = multiplier * tokenPerBlock * pool.allocPoint / totalAllocPoint;
-
-            accTokenPerShare = accTokenPerShare + (tokenReward * PRECISION / lpSupply);
-        }
-        return (user.amount * accTokenPerShare / PRECISION) - user.rewardDebt;
     }
 
     // Update reward vairables for all pools. Be careful of gas spending!
@@ -112,24 +94,28 @@ contract Masterchef is Ownable {
         uint256 multiplier = block.number - pool.lastRewardBlock;
         uint256 tokenReward = multiplier * tokenPerBlock * pool.allocPoint / totalAllocPoint;
 
-        IERC20Mintable(address(token)).mint(address(this), tokenReward);
-
-        pool.accTokenPerShare = (pool.accTokenPerShare + tokenReward) * PRECISION / lpSupply;
+        pool.accTokenPerShare = pool.accTokenPerShare + (tokenReward * PRECISION / lpSupply);
         pool.lastRewardBlock = block.number;
+
+        IERC20Mintable(address(token)).mint(address(this), tokenReward);
     }
 
     // Deposit LP tokens to MasterChef for TOKEN allocation.
     function deposit(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
+
         updatePool(_pid);
+
         if (user.amount > 0) {
             uint256 pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
             safeTokenTransfer(msg.sender, pending);
         }
-        pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
         user.amount = user.amount + _amount;
         user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
+
+        pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
+
         emit Deposit(msg.sender, _pid, _amount);
     }
 
@@ -137,13 +123,17 @@ contract Masterchef is Ownable {
     function withdraw(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-        require(user.amount >= _amount, "withdraw: not good");
+
         updatePool(_pid);
+
+        require(user.amount >= _amount, "withdraw: not good");
         uint256 pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
-        safeTokenTransfer(msg.sender, pending);
         user.amount = user.amount - _amount;
         user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
+        
+        safeTokenTransfer(msg.sender, pending);
         pool.lpToken.safeTransfer(address(msg.sender), _amount);
+
         emit Withdraw(msg.sender, _pid, _amount);
     }
 
@@ -155,11 +145,6 @@ contract Masterchef is Ownable {
         } else {
             token.safeTransfer(_to, _amount);
         }
-    }
-
-    // Update dev address by the previous dev.
-    function setDev(address _admin) public onlyOwner {
-        admin = _admin;
     }
 
     /// getter

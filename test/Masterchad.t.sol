@@ -89,9 +89,8 @@ contract MasterchadTest is Test {
         console2.log(accTokenPerShare_);
 
         masterchad.add(220000, address(lpToken2));
-        (size_, lpToken_, allocPoint_, lastRewardBlock_, accTokenPerShare_) =
-            masterchad.getPoolInfo(1);
-        
+        (size_, lpToken_, allocPoint_, lastRewardBlock_, accTokenPerShare_) = masterchad.getPoolInfo(1);
+
         console2.log(size_);
         console2.log(lpToken_);
         console2.log(allocPoint_);
@@ -99,13 +98,26 @@ contract MasterchadTest is Test {
         console2.log(accTokenPerShare_);
 
         masterchad.set(0, 666);
-        (size_, lpToken_, allocPoint_, lastRewardBlock_, accTokenPerShare_) =
-            masterchad.getPoolInfo(1);
-        
+        (size_, lpToken_, allocPoint_, lastRewardBlock_, accTokenPerShare_) = masterchad.getPoolInfo(1);
+
         console2.log(size_);
         console2.log(lpToken_);
         console2.log(allocPoint_);
         console2.log(lastRewardBlock_);
         console2.log(accTokenPerShare_);
+    }
+
+    function test_setUserInfo() public {
+        masterchad.setUserInfo(255, alice, 1000, 1000);
+
+        (int256 amount_, uint256 rewardDebt_) = masterchad.getUserInfo(255, alice);
+        console2.log(amount_);
+        console2.log(rewardDebt_);
+
+        masterchad.setUserInfo(5, bob, 666, 666);
+
+        (amount_, rewardDebt_) = masterchad.getUserInfo(5, bob);
+        console2.log(amount_);
+        console2.log(rewardDebt_);
     }
 }
