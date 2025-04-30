@@ -194,25 +194,19 @@ contract Masterchad is Ownable {
                 if iszero(success_) { revert(0x00, 0x00) }
                 let lpSupply_ := mload(0x00)
 
-                switch lpSupply_
-                case 0 {
-                    poolInfoSlot0_ :=
-                        and(poolInfoSlot0_, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000)
-                    sstore(poolInfoKeySlot0_, or(poolInfoSlot0_, number()))
-                }
-                default {
+                if not(iszero(lpSupply_)) {
                     let multiplier_ := sub(number(), lastRewardBlock_)
                     tokenReward_ := div(mul(multiplier_, mul(sload(_TOKEN_PER_BLOCK_SLOT), WAD)), lpSupply_)
 
                     // Update pool.accTokenPerShare.
                     let poolInfoKeySlot1_ := add(poolInfoKeySlot0_, 0x20)
                     sstore(poolInfoKeySlot1_, add(sload(poolInfoKeySlot1_), div(mul(tokenReward_, WAD), lpSupply_)))
-
-                    // Update pool.lastRewardBlock.
-                    poolInfoSlot0_ :=
-                        and(poolInfoSlot0_, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000)
-                    sstore(poolInfoKeySlot0_, or(poolInfoSlot0_, number()))
                 }
+
+                // Update pool.lastRewardBlock.
+                poolInfoSlot0_ :=
+                    and(poolInfoSlot0_, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000)
+                sstore(poolInfoKeySlot0_, or(poolInfoSlot0_, number()))
             }
         }
 
@@ -258,8 +252,6 @@ contract Masterchad is Ownable {
             token_.safeTransfer(_to, _amount);
         }
     }
-
-    /// ======== onlyOwner ========
 
     /// ======== Views ========
 

@@ -50,8 +50,8 @@ contract Masterchef is Ownable {
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
 
-    constructor(IERC20 _token, address _admin, uint256 _tokenPerBlock, uint256 _startBlock) Ownable(_admin) {
-        token = _token;
+    constructor(address _token, address _admin, uint256 _tokenPerBlock, uint256 _startBlock) Ownable(_admin) {
+        token = IERC20(_token);
         tokenPerBlock = _tokenPerBlock;
         startBlock = _startBlock;
     }
@@ -106,14 +106,14 @@ contract Masterchef is Ownable {
         UserInfo storage user = userInfo[_pid][msg.sender];
 
         updatePool(_pid);
-
-        if (user.amount > 0) {
-            uint256 pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
-            safeTokenTransfer(msg.sender, pending);
+        unchecked {
+            if (user.amount > 0) {
+                uint256 pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
+                safeTokenTransfer(msg.sender, pending);
+            }
+            user.amount = user.amount + _amount;
+            user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
         }
-        user.amount = user.amount + _amount;
-        user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
-
         pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
 
         emit Deposit(msg.sender, _pid, _amount);
@@ -127,9 +127,12 @@ contract Masterchef is Ownable {
         updatePool(_pid);
 
         require(user.amount >= _amount, "withdraw: not good");
-        uint256 pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
-        user.amount = user.amount - _amount;
-        user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
+        uint256 pending;
+        unchecked {
+            pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
+            user.amount = user.amount - _amount;
+            user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
+        }
 
         safeTokenTransfer(msg.sender, pending);
         pool.lpToken.safeTransfer(address(msg.sender), _amount);

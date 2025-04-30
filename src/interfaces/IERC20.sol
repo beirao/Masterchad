@@ -77,5 +77,5 @@ interface IERC20Mintable {
      */
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 
-    function mint(address to, uint256 value) external returns (bool);
+    function mint(address account, uint256 amount) external;
 }
