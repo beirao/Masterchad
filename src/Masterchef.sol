@@ -130,7 +130,7 @@ contract Masterchef is Ownable {
         uint256 pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
         user.amount = user.amount - _amount;
         user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
-        
+
         safeTokenTransfer(msg.sender, pending);
         pool.lpToken.safeTransfer(address(msg.sender), _amount);
 

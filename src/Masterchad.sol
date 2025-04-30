@@ -227,18 +227,14 @@ contract Masterchad is Ownable {
 
     function deposit(uint256 _pid, uint256 _amount) public {
         updatePool(_pid);
-        
-        assembly {
-            
-        }
+
+        assembly {}
     }
 
     function withdraw(uint256 _pid, uint256 _amount) public {
         updatePool(_pid);
 
-        assembly {
-            
-        }
+        assembly {}
     }
 
     function safeTokenTransfer(address _to, uint256 _amount) internal {
