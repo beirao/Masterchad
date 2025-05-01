@@ -23,7 +23,7 @@ The standard Solidity implementation that uses traditional data structures and c
 
 ### Masterchad.sol
 
-A highly optimized version that uses YUL (Ethereum's intermediate language) for direct memory and storage manipulation:
+A highly optimized version that uses Yul for direct memory and storage manipulation:
 
 - Uses custom storage layout for gas optimization
 - Implements the same functionality but with significant gas savings
@@ -71,7 +71,7 @@ Update the reward variables for a specific pool:
 function updatePool(uint256 _pid) public
 ```
 
-## Performance Comparison TODO
+## Performance Comparison
 
 The Masterchad (YUL) implementation offers significant gas savings compared to the standard Masterchef implementation:
 
