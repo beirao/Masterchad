@@ -41,7 +41,7 @@ contract Masterchad is Ownable {
      *          mstore(0x20, _POOL_INFO_SEED_SLOT)
      *          mstore(0x1c, poolInfoSize_)
      *
-     *          let key_ := keccak256(0x1c, 0x05)
+     *          let key_ := keccak256(0x3b, 0x05)
      *          sstore(key_, add(shl(96, _lpToken), add(shl(32, _allocPoint), lastRewardBlock_)))
      *          sstore(add(key_, 0x20), 0)
      */
@@ -143,7 +143,7 @@ contract Masterchad is Ownable {
             // Calculating the key for the poolInfo.
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, poolInfoSize_)
-            let poolInfoKey_ := keccak256(0x1c, 0x05)
+            let poolInfoKey_ := keccak256(0x3b, 0x05)
 
             // Pack and Store the poolInfo.
             sstore(poolInfoKey_, add(shl(96, _lpToken), add(shl(32, _allocPoint), lastRewardBlock_)))
@@ -165,7 +165,7 @@ contract Masterchad is Ownable {
 
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, _pid)
-            let poolInfoKey_ := keccak256(0x1c, 0x05)
+            let poolInfoKey_ := keccak256(0x3b, 0x05)
 
             let poolInfoSlot0_ := sload(poolInfoKey_)
             let allocPoint_ := shr(32, poolInfoSlot0_)
@@ -202,7 +202,7 @@ contract Masterchad is Ownable {
         assembly {
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, _pid)
-            let poolInfoKeySlot0_ := keccak256(0x1c, 0x05)
+            let poolInfoKeySlot0_ := keccak256(0x3b, 0x05)
             let poolInfoSlot0_ := sload(poolInfoKeySlot0_)
             let lastRewardBlock_ := shr(224, shl(224, poolInfoSlot0_))
 
@@ -258,7 +258,7 @@ contract Masterchad is Ownable {
             // Get pool info.
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, _pid)
-            let poolInfoKey_ := keccak256(0x1c, 0x05)
+            let poolInfoKey_ := keccak256(0x3b, 0x05)
             lpToken_ := shr(96, sload(poolInfoKey_))
             let accTokenPerShare_ := sload(add(poolInfoKey_, 0x20))
 
@@ -302,7 +302,7 @@ contract Masterchad is Ownable {
             // Get pool info.
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, _pid)
-            let poolInfoKey_ := keccak256(0x1c, 0x05)
+            let poolInfoKey_ := keccak256(0x3b, 0x05)
             lpToken_ := shr(96, sload(poolInfoKey_))
             let accTokenPerShare_ := sload(add(poolInfoKey_, 0x20))
 
@@ -393,7 +393,7 @@ contract Masterchad is Ownable {
         assembly {
             mstore(0x20, _POOL_INFO_SEED_SLOT)
             mstore(0x1c, _pid)
-            let poolInfoKey_ := keccak256(0x1c, 0x05)
+            let poolInfoKey_ := keccak256(0x3b, 0x05)
 
             let infoPoolSlot1_ := sload(poolInfoKey_)
             size_ := sload(_POOL_INFO_SEED_SLOT)
@@ -418,24 +418,6 @@ contract Masterchad is Ownable {
             let userInfoKey_ := keccak256(0x0d, 0x19)
             amount_ := sload(userInfoKey_)
             rewardDebt_ := sload(add(userInfoKey_, 0x20))
-        }
-    }
-
-    // todo ======== DEBUG TO DELETE ========
-    /// @notice Debug function to manually set user info (to be removed in production).
-    /// @param _pid The pool ID to modify.
-    /// @param _user The user address to modify.
-    /// @param _amount The amount to set.
-    /// @param _rewardDebt The reward debt to set.
-    function setUserInfo(uint256 _pid, address _user, int256 _amount, uint256 _rewardDebt) public {
-        assembly {
-            mstore(0x05, _pid)
-            mstore(0x04, _USER_INFO_SEED_SLOT)
-            mstore(0x00, _user)
-
-            let userInfoKey_ := keccak256(0x0d, 0x19)
-            sstore(userInfoKey_, _amount)
-            sstore(add(userInfoKey_, 0x20), _rewardDebt)
         }
     }
 }

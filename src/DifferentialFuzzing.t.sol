@@ -33,6 +33,9 @@ contract DifferentialFuzzingTest is Test {
         lpToken1 = new MockERC20("LP Token 1", "LP1", 1000000 ether);
         lpToken2 = new MockERC20("LP Token 2", "LP2", 1000000 ether);
 
+        console2.log("lpToken1", address(lpToken1));
+        console2.log("lpToken2", address(lpToken2));
+
         // Setup block numbers.
         startBlock = block.number;
 
@@ -42,8 +45,10 @@ contract DifferentialFuzzingTest is Test {
 
         // Setup initial pools.
         masterchef.add(1000, IERC20(address(lpToken1)));
-
         masterchad.add(1000, address(lpToken1));
+
+        masterchef.add(2000, IERC20(address(lpToken2)));
+        masterchad.add(2000, address(lpToken2));
 
         // Distribute LP tokens to users.
         lpToken1.transfer(alice, 1000 ether);
@@ -68,6 +73,12 @@ contract DifferentialFuzzingTest is Test {
         lpToken1.approve(address(masterchad), type(uint256).max);
         lpToken2.approve(address(masterchad), type(uint256).max);
         vm.stopPrank();
+
+        // Check deployment integrity.
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(1, alice);
+        storageIntegrityCheck(0, bob);
+        storageIntegrityCheck(1, bob);
     }
 
     function test_basicDepositMasterchef() public {
@@ -106,9 +117,9 @@ contract DifferentialFuzzingTest is Test {
         // assertLt(beforeBalanceAlice, afterBalanceAlice);
     }
 
-    function test_basicDiff() public {
-        // _amount = bound(_amount, 1 ether, 100 ether);
-        uint256 _amount = 100 ether;
+    function test_basicDiff(uint256 _amount) public {
+        _amount = bound(_amount, 1 ether, 100 ether);
+        // uint256 _amount = 100 ether;
 
         vm.prank(alice);
         masterchef.deposit(0, _amount);
@@ -134,6 +145,187 @@ contract DifferentialFuzzingTest is Test {
         masterchad.withdraw(0, _amount);
 
         storageIntegrityCheck(0, alice);
+    }
+
+    function test_multipleUsersDiff(uint256 _amount1, uint256 _amount2) public {
+        _amount1 = bound(_amount1, 1 ether, 100 ether);
+        _amount2 = bound(_amount2, 1 ether, 100 ether);
+
+        // uint256 _amount1 = 100 ether;
+        // uint256 _amount2 = 200 ether;
+
+        vm.prank(alice);
+        masterchef.deposit(0, _amount1);
+        vm.prank(bob);
+        masterchef.deposit(0, _amount2);
+
+        vm.prank(alice);
+        masterchad.deposit(0, _amount1);
+        vm.prank(bob);
+        masterchad.deposit(0, _amount2);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+        vm.roll(block.number + 1);
+
+        masterchef.updatePool(0);
+        masterchad.updatePool(0);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+
+        vm.prank(alice);
+        masterchef.withdraw(0, _amount1);
+        vm.prank(bob);
+        masterchef.withdraw(0, _amount2);
+
+        vm.prank(alice);
+        masterchad.withdraw(0, _amount1);
+        vm.prank(bob);
+        masterchad.withdraw(0, _amount2);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+    }
+
+    function test_multipleUsersAndPoolsDiff(uint256 _amount1, uint256 _amount2) public {
+        _amount1 = bound(_amount1, 1 ether, 100 ether);
+        _amount2 = bound(_amount2, 1 ether, 100 ether);
+
+        // uint256 _amount1 = 100 ether;
+        // uint256 _amount2 = 200 ether;
+
+        vm.prank(alice);
+        masterchef.deposit(0, _amount1);
+        vm.prank(bob);
+        masterchef.deposit(0, _amount2);
+
+        vm.prank(alice);
+        masterchad.deposit(0, _amount1);
+        vm.prank(bob);
+        masterchad.deposit(0, _amount2);
+
+        vm.prank(alice);
+        masterchef.deposit(1, _amount1);
+        vm.prank(bob);
+        masterchef.deposit(1, _amount2);
+
+        vm.prank(alice);
+        masterchad.deposit(1, _amount1);
+        vm.prank(bob);
+        masterchad.deposit(1, _amount2);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+        storageIntegrityCheck(1, alice);
+        storageIntegrityCheck(1, bob);
+
+        vm.roll(block.number + 1);
+
+        masterchef.updatePool(0);
+        masterchad.updatePool(0);
+        masterchef.updatePool(1);
+        masterchad.updatePool(1);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+        storageIntegrityCheck(1, alice);
+        storageIntegrityCheck(1, bob);
+
+        vm.prank(alice);
+        masterchef.withdraw(0, _amount1);
+        vm.prank(bob);
+        masterchef.withdraw(0, _amount2);
+
+        vm.prank(alice);
+        masterchad.withdraw(0, _amount1);
+        vm.prank(bob);
+        masterchad.withdraw(0, _amount2);
+
+        vm.prank(alice);
+        masterchef.withdraw(1, _amount1);
+        vm.prank(bob);
+        masterchef.withdraw(1, _amount2);
+
+        vm.prank(alice);
+        masterchad.withdraw(1, _amount1);
+        vm.prank(bob);
+        masterchad.withdraw(1, _amount2);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+        storageIntegrityCheck(1, alice);
+        storageIntegrityCheck(1, bob);
+    }
+
+    function test_multipleUsersAndPoolsDiff2(uint256 _amount1, uint256 _amount2) public {
+        _amount1 = bound(_amount1, 1 ether, 100 ether);
+        _amount2 = bound(_amount2, 1 ether, 100 ether);
+
+        // uint256 _amount1 = 100 ether;
+        // uint256 _amount2 = 200 ether;
+
+        vm.prank(alice);
+        masterchef.deposit(0, _amount1);
+        vm.prank(bob);
+        masterchef.deposit(0, _amount2);
+
+        vm.prank(alice);
+        masterchad.deposit(0, _amount1);
+        vm.prank(bob);
+        masterchad.deposit(0, _amount2);
+
+        vm.prank(alice);
+        masterchef.deposit(1, _amount1);
+        vm.prank(bob);
+        masterchef.deposit(1, _amount2);
+
+        vm.prank(alice);
+        masterchad.deposit(1, _amount1);
+        vm.prank(bob);
+        masterchad.deposit(1, _amount2);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+        storageIntegrityCheck(1, alice);
+        storageIntegrityCheck(1, bob);
+
+        vm.roll(block.number + 10);
+
+        masterchef.updatePool(0);
+        masterchad.updatePool(0);
+        masterchef.updatePool(1);
+        masterchad.updatePool(1);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+        storageIntegrityCheck(1, alice);
+        storageIntegrityCheck(1, bob);
+
+        vm.prank(alice);
+        masterchef.withdraw(0, _amount1);
+        vm.prank(bob);
+        masterchef.withdraw(0, _amount2 / 2);
+
+        vm.prank(alice);
+        masterchad.withdraw(0, _amount1);
+        vm.prank(bob);
+        masterchad.withdraw(0, _amount2 / 2);
+
+        vm.prank(alice);
+        masterchef.withdraw(1, _amount1);
+        vm.prank(bob);
+        masterchef.withdraw(1, _amount2 / 2);
+
+        vm.prank(alice);
+        masterchad.withdraw(1, _amount1);
+        vm.prank(bob);
+        masterchad.withdraw(1, _amount2 / 2);
+
+        storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, bob);
+        storageIntegrityCheck(1, alice);
+        storageIntegrityCheck(1, bob);
     }
 
     // ======= Helpers =======
@@ -176,6 +368,9 @@ contract DifferentialFuzzingTest is Test {
         assertEq(storage1_.allocPoint, storage2_.allocPoint, "5");
         assertEq(storage1_.lastRewardBlock, storage2_.lastRewardBlock, "6");
         assertEq(storage1_.accTokenPerShare, storage2_.accTokenPerShare, "7");
+        assertEq(token.balanceOf(address(masterchef)), token.balanceOf(address(masterchad)), "8");
+        assertEq(lpToken1.balanceOf(address(masterchef)), lpToken1.balanceOf(address(masterchad)), "9");
+        // assertEq(lpToken2.balanceOf(masterchef), lpToken2.balanceOf(masterchad), "10");
     }
 
     function logStorageMasterchef(uint256 _pid, address _user) public view {

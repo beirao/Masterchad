@@ -95,8 +95,6 @@ contract Masterchef is Ownable {
 
         pool.lastRewardBlock = block.number;
 
-        IERC20Mintable(address(token)).mint(address(this), tokenReward);
-
         if (tokenReward != 0) {
             IERC20Mintable(address(token)).mint(address(this), tokenReward);
         }

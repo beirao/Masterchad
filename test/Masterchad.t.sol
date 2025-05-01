@@ -126,20 +126,6 @@ contract MasterchadTest is Test {
         assertEq(accTokenPerShare_, accTokenPerShareBefore_);
     }
 
-    function test_setUserInfo() public {
-        masterchad.setUserInfo(255, alice, 1000, 1000);
-
-        (uint256 amount_, uint256 rewardDebt_) = masterchad.getUserInfo(255, alice);
-        console2.log(amount_);
-        console2.log(rewardDebt_);
-
-        masterchad.setUserInfo(5, bob, 666, 666);
-
-        (amount_, rewardDebt_) = masterchad.getUserInfo(5, bob);
-        console2.log(amount_);
-        console2.log(rewardDebt_);
-    }
-
     function test_basicDepositWithdraw() public {
         // token.transfer(address(masterchad), 1000 ether);
         masterchad.add(1000, address(lpToken1));
