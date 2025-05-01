@@ -129,7 +129,7 @@ contract MasterchadTest is Test {
     function test_setUserInfo() public {
         masterchad.setUserInfo(255, alice, 1000, 1000);
 
-        (int256 amount_, uint256 rewardDebt_) = masterchad.getUserInfo(255, alice);
+        (uint256 amount_, uint256 rewardDebt_) = masterchad.getUserInfo(255, alice);
         console2.log(amount_);
         console2.log(rewardDebt_);
 

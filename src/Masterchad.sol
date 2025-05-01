@@ -228,7 +228,7 @@ contract Masterchad is Ownable {
                 // Update pool.lastRewardBlock.
                 poolInfoSlot0_ :=
                     and(poolInfoSlot0_, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000)
-                sstore(poolInfoKeySlot0_, or(poolInfoSlot0_, number()))
+                sstore(poolInfoKeySlot0_, or(poolInfoSlot0_, number())) // SafeCast since block.number < type(uint32).max
             }
         }
 
@@ -405,7 +405,7 @@ contract Masterchad is Ownable {
     /// @param _user The user address to query.
     /// @return amount_ The amount of LP tokens the user has provided.
     /// @return rewardDebt_ The reward debt for the user.
-    function getUserInfo(uint256 _pid, address _user) public view returns (int256 amount_, uint256 rewardDebt_) {
+    function getUserInfo(uint256 _pid, address _user) public view returns (uint256 amount_, uint256 rewardDebt_) {
         assembly {
             mstore(0x05, _pid)
             mstore(0x04, _USER_INFO_SEED_SLOT)

@@ -85,19 +85,21 @@ contract Masterchef is Ownable {
             return;
         }
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
+        uint256 tokenReward;
+        if (lpSupply != 0) {
+            uint256 multiplier = block.number - pool.lastRewardBlock;
+            tokenReward = multiplier * tokenPerBlock * pool.allocPoint / totalAllocPoint;
 
-        if (lpSupply == 0) {
-            pool.lastRewardBlock = block.number;
-            return;
+            pool.accTokenPerShare = pool.accTokenPerShare + (tokenReward * PRECISION / lpSupply);
         }
 
-        uint256 multiplier = block.number - pool.lastRewardBlock;
-        uint256 tokenReward = multiplier * tokenPerBlock * pool.allocPoint / totalAllocPoint;
-
-        pool.accTokenPerShare = pool.accTokenPerShare + (tokenReward * PRECISION / lpSupply);
         pool.lastRewardBlock = block.number;
 
         IERC20Mintable(address(token)).mint(address(this), tokenReward);
+
+        if (tokenReward != 0) {
+            IERC20Mintable(address(token)).mint(address(this), tokenReward);
+        }
     }
 
     // Deposit LP tokens to MasterChef for TOKEN allocation.
@@ -153,9 +155,9 @@ contract Masterchef is Ownable {
     }
 
     /// getter
-    function getPoolInfo(uint256 _pid) public view returns (address, uint256, uint256, uint256) {
+    function getPoolInfo(uint256 _pid) public view returns (uint256, address, uint256, uint256, uint256) {
         PoolInfo storage pool = poolInfo[_pid];
-        return (address(pool.lpToken), pool.allocPoint, pool.lastRewardBlock, pool.accTokenPerShare);
+        return (poolInfo.length, address(pool.lpToken), pool.allocPoint, pool.lastRewardBlock, pool.accTokenPerShare);
     }
 
     function getUserInfo(uint256 _pid, address _user) public view returns (uint256, uint256) {
