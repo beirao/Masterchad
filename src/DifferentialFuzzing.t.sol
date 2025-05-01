@@ -125,15 +125,15 @@ contract DifferentialFuzzingTest is Test {
 
         logStorageMasterchef(0, alice);
         logStorageMasterchad(0, alice);
-        // storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, alice);
 
-        // vm.prank(alice);
-        // masterchef.withdraw(0, _amount);
+        vm.prank(alice);
+        masterchef.withdraw(0, _amount);
 
-        // vm.prank(alice);
-        // masterchad.withdraw(0, _amount);
+        vm.prank(alice);
+        masterchad.withdraw(0, _amount);
 
-        // storageIntegrityCheck(0, alice);
+        storageIntegrityCheck(0, alice);
     }
 
     // ======= Helpers =======

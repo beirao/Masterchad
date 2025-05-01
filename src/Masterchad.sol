@@ -218,7 +218,11 @@ contract Masterchad is Ownable {
 
                 if not(iszero(lpSupply_)) {
                     let multiplier_ := sub(number(), lastRewardBlock_)
-                    tokenReward_ := div(mul(multiplier_, mul(sload(_TOKEN_PER_BLOCK_SLOT), WAD)), lpSupply_)
+                    let allocPoint_ := shr(192, shl(160, poolInfoSlot0_))
+                    tokenReward_ :=
+                        div(
+                            mul(multiplier_, mul(sload(_TOKEN_PER_BLOCK_SLOT), allocPoint_)), sload(_TOTAL_ALLOC_POINT_SLOT)
+                        )
 
                     // Update pool.accTokenPerShare.
                     let poolInfoKeySlot1_ := add(poolInfoKeySlot0_, 0x20)
