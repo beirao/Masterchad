@@ -78,10 +78,23 @@ contract Masterchad is Ownable {
 
     // Events
 
+    /// @notice Emitted when a user deposits LP tokens to a pool.
+    /// @param user The address of the user who deposited.
+    /// @param pid The pool ID where tokens were deposited.
+    /// @param amount The amount of LP tokens deposited.
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
 
+    /// @notice Emitted when a user withdraws LP tokens from a pool.
+    /// @param user The address of the user who withdrew.
+    /// @param pid The pool ID where tokens were withdrawn.
+    /// @param amount The amount of LP tokens withdrawn.
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
 
+    /// @notice Initializes the Masterchad contract.
+    /// @param _token The address of the reward token.
+    /// @param _admin The address of the admin/owner.
+    /// @param _tokenPerBlock The amount of reward tokens to distribute per block.
+    /// @param _startBlock The block number when reward distribution starts.
     constructor(address _token, address _admin, uint256 _tokenPerBlock, uint256 _startBlock) {
         _initializeOwner(_admin);
 
@@ -94,6 +107,10 @@ contract Masterchad is Ownable {
 
     /// ======== onlyOwner ========
 
+    /// @notice Add a new LP token to the pool.
+    /// @dev Can only be called by the owner.
+    /// @param _allocPoint Allocation points for the new pool.
+    /// @param _lpToken Address of the LP token contract.
     function add(uint256 _allocPoint, address _lpToken) public onlyOwner {
         assembly {
             let startBlock_ := sload(_START_BLOCK_SLOT)
@@ -134,6 +151,10 @@ contract Masterchad is Ownable {
         }
     }
 
+    /// @notice Update the allocation point of a pool.
+    /// @dev Can only be called by the owner.
+    /// @param _pid The pool ID to update.
+    /// @param _allocPoint New allocation points for the pool.
     function set(uint256 _pid, uint256 _allocPoint) public onlyOwner {
         assembly {
             // Checking if total allocation point exceeds the limit.
@@ -160,6 +181,8 @@ contract Masterchad is Ownable {
         }
     }
 
+    /// @notice Update reward variables for all pools.
+    /// @dev Be careful of gas spending.
     function massUpdatePools() public {
         uint256 poolInfoSize_;
         assembly {
@@ -171,6 +194,8 @@ contract Masterchad is Ownable {
         }
     }
 
+    /// @notice Update reward variables of the given pool.
+    /// @param _pid The pool ID to update.
     function updatePool(uint256 _pid) public {
         uint256 tokenReward_;
 
@@ -216,6 +241,9 @@ contract Masterchad is Ownable {
         }
     }
 
+    /// @notice Deposit LP tokens to Masterchad for token allocation.
+    /// @param _pid The pool ID to deposit to.
+    /// @param _amount The amount of LP tokens to deposit.
     function deposit(uint256 _pid, uint256 _amount) public {
         updatePool(_pid);
 
@@ -257,6 +285,9 @@ contract Masterchad is Ownable {
         emit Deposit(msg.sender, _pid, _amount);
     }
 
+    /// @notice Withdraw LP tokens from Masterchad.
+    /// @param _pid The pool ID to withdraw from.
+    /// @param _amount The amount of LP tokens to withdraw.
     function withdraw(uint256 _pid, uint256 _amount) public {
         updatePool(_pid);
 
@@ -301,6 +332,9 @@ contract Masterchad is Ownable {
         emit Withdraw(msg.sender, _pid, _amount);
     }
 
+    /// @notice Safe token transfer function in case there is not enough tokens in the pool.
+    /// @param _to Address to transfer tokens to.
+    /// @param _amount Amount of tokens to transfer.
     function safeTokenTransfer(address _to, uint256 _amount) internal {
         uint256 tokenBal_;
         address token_;
@@ -325,12 +359,22 @@ contract Masterchad is Ownable {
 
     /// ======== Views ========
 
+    /// @notice Read a storage slot directly.
+    /// @param _slot The storage slot to read.
+    /// @return ret_ The value stored at the slot.
     function readStorage(uint256 _slot) public view returns (uint256 ret_) {
         assembly {
             ret_ := sload(_slot)
         }
     }
 
+    /// @notice Get information about a pool.
+    /// @param _pid The pool ID to query.
+    /// @return size_ The total number of pools.
+    /// @return lpToken_ The address of the LP token.
+    /// @return allocPoint_ The allocation points assigned to the pool.
+    /// @return lastRewardBlock_ The last block number that rewards distribution occurred.
+    /// @return accTokenPerShare_ Accumulated tokens per share.
     function getPoolInfo(uint256 _pid)
         public
         view
@@ -356,6 +400,11 @@ contract Masterchad is Ownable {
         }
     }
 
+    /// @notice Get information about a user's position in a pool.
+    /// @param _pid The pool ID to query.
+    /// @param _user The user address to query.
+    /// @return amount_ The amount of LP tokens the user has provided.
+    /// @return rewardDebt_ The reward debt for the user.
     function getUserInfo(uint256 _pid, address _user) public view returns (int256 amount_, uint256 rewardDebt_) {
         assembly {
             mstore(0x05, _pid)
@@ -369,6 +418,11 @@ contract Masterchad is Ownable {
     }
 
     // todo ======== DEBUG TO DELETE ========
+    /// @notice Debug function to manually set user info (to be removed in production).
+    /// @param _pid The pool ID to modify.
+    /// @param _user The user address to modify.
+    /// @param _amount The amount to set.
+    /// @param _rewardDebt The reward debt to set.
     function setUserInfo(uint256 _pid, address _user, int256 _amount, uint256 _rewardDebt) public {
         assembly {
             mstore(0x05, _pid)
