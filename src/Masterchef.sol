@@ -106,13 +106,17 @@ contract Masterchef is Ownable {
         UserInfo storage user = userInfo[_pid][msg.sender];
 
         updatePool(_pid);
-        unchecked {
-            if (user.amount > 0) {
-                uint256 pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
-                safeTokenTransfer(msg.sender, pending);
-            }
-            user.amount = user.amount + _amount;
-            user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
+
+        uint256 pending;
+
+        if (user.amount > 0) {
+            pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
+        }
+        user.amount = user.amount + _amount;
+        user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
+
+        if (pending > 0) {
+            safeTokenTransfer(msg.sender, pending);
         }
         pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
 
@@ -128,11 +132,9 @@ contract Masterchef is Ownable {
 
         require(user.amount >= _amount, "withdraw: not good");
         uint256 pending;
-        unchecked {
-            pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
-            user.amount = user.amount - _amount;
-            user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
-        }
+        pending = user.amount * pool.accTokenPerShare / PRECISION - user.rewardDebt;
+        user.amount = user.amount - _amount;
+        user.rewardDebt = user.amount * pool.accTokenPerShare / PRECISION;
 
         safeTokenTransfer(msg.sender, pending);
         pool.lpToken.safeTransfer(address(msg.sender), _amount);

@@ -66,6 +66,11 @@ contract Masterchad is Ownable {
 
     uint256 private constant _ERROR_MAX_NUMBER_OF_POOL_REACHED = 0x917bdbed;
 
+    /// @dev `keccak256(bytes("Masterchad__NOT_ENOUGH_BALANCE()"))`.
+    error Masterchad__NOT_ENOUGH_BALANCE();
+
+    uint256 private constant _ERROR_NOT_ENOUGH_BALANCE = 0x345104bb;
+
     /// @dev `keccak256(bytes("Masterchad__MAX_ALLOCATION_POINT_REACHED()"))`.
     error Masterchad__MAX_ALLOCATION_POINT_REACHED();
 
@@ -73,17 +78,9 @@ contract Masterchad is Ownable {
 
     // Events
 
-    /// @dev `keccak256(bytes("Deposit(address,uint256,uint256)"))`.
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
 
-    uint256 private constant _EVENT_DEPOSIT_SIGNATURE =
-        0x90890809c654f11d6e72a28fa60149770a0d11ec6c92319d6ceb2bb0a4ea1a15;
-
-    /// @dev `keccak256(bytes("Withdraw(address,uint256,uint256)"))`.
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
-
-    uint256 private constant _EVENT_WITHDRAW_SIGNATURE =
-        0xf279e6a1f5e320cca91135676d9cb6e44ca8a08c0b88342bcdb1144f6511b568;
 
     constructor(address _token, address _admin, uint256 _tokenPerBlock, uint256 _startBlock) {
         _initializeOwner(_admin);
@@ -222,13 +219,86 @@ contract Masterchad is Ownable {
     function deposit(uint256 _pid, uint256 _amount) public {
         updatePool(_pid);
 
-        assembly {}
+        uint256 pending_;
+        address lpToken_;
+
+        assembly {
+            // Get pool info.
+            mstore(0x20, _POOL_INFO_SEED_SLOT)
+            mstore(0x1c, _pid)
+            let poolInfoKey_ := keccak256(0x1c, 0x05)
+            lpToken_ := shr(96, sload(poolInfoKey_))
+            let accTokenPerShare_ := sload(add(poolInfoKey_, 0x20))
+
+            // Get user info.
+            mstore(0x05, _pid)
+            mstore(0x04, _USER_INFO_SEED_SLOT)
+            mstore(0x00, caller())
+            let userInfoKey_ := keccak256(0x0d, 0x19)
+            let amount_ := sload(userInfoKey_)
+            let rewardDebt_ := sload(add(userInfoKey_, 0x20))
+
+            // Calculate pending rewards.
+            if not(iszero(amount_)) { pending_ := sub(div(mul(amount_, accTokenPerShare_), WAD), rewardDebt_) }
+
+            amount_ := add(amount_, _amount)
+            rewardDebt_ := div(mul(amount_, accTokenPerShare_), WAD)
+
+            // Store userInfo.
+            sstore(userInfoKey_, amount_)
+            sstore(add(userInfoKey_, 0x20), rewardDebt_)
+        }
+
+        if (pending_ != 0) {
+            safeTokenTransfer(msg.sender, pending_);
+        }
+        lpToken_.safeTransferFrom(address(msg.sender), address(this), _amount);
+
+        emit Deposit(msg.sender, _pid, _amount);
     }
 
     function withdraw(uint256 _pid, uint256 _amount) public {
         updatePool(_pid);
 
-        assembly {}
+        uint256 pending_;
+        address lpToken_;
+
+        assembly {
+            // Get pool info.
+            mstore(0x20, _POOL_INFO_SEED_SLOT)
+            mstore(0x1c, _pid)
+            let poolInfoKey_ := keccak256(0x1c, 0x05)
+            lpToken_ := shr(96, sload(poolInfoKey_))
+            let accTokenPerShare_ := sload(add(poolInfoKey_, 0x20))
+
+            // Get user info.
+            mstore(0x05, _pid)
+            mstore(0x04, _USER_INFO_SEED_SLOT)
+            mstore(0x00, caller())
+            let userInfoKey_ := keccak256(0x0d, 0x19)
+            let amount_ := sload(userInfoKey_)
+            let rewardDebt_ := sload(add(userInfoKey_, 0x20))
+
+            // Check if there is enough balance to withdraw `_amount`.
+            if gt(_amount, amount_) {
+                mstore(0x00, _ERROR_NOT_ENOUGH_BALANCE)
+                revert(0x1c, 0x04)
+            }
+
+            // Calculate pending rewards.
+            pending_ := sub(div(mul(amount_, accTokenPerShare_), WAD), rewardDebt_)
+            amount_ := sub(amount_, _amount)
+            rewardDebt_ := div(mul(amount_, accTokenPerShare_), WAD)
+
+            // Store userInfo.
+            sstore(userInfoKey_, amount_)
+            sstore(add(userInfoKey_, 0x20), rewardDebt_)
+        }
+
+        safeTokenTransfer(msg.sender, pending_);
+        lpToken_.safeTransfer(address(msg.sender), _amount);
+
+        emit Withdraw(msg.sender, _pid, _amount);
     }
 
     function safeTokenTransfer(address _to, uint256 _amount) internal {

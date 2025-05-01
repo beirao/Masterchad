@@ -18,7 +18,7 @@ contract MasterchefTest is Test {
     address public alice;
     address public bob;
 
-    uint256 public tokenPerBlock = 100 ether;
+    uint256 public tokenPerBlock = 1 ether;
     uint256 public startBlock;
     uint256 public bonusEndBlock;
 
@@ -36,13 +36,13 @@ contract MasterchefTest is Test {
         startBlock = block.number;
 
         // Deploy Masterchef
-        masterchef = new Masterchef(address(token), address(this), 10000, startBlock);
+        masterchef = new Masterchef(address(token), address(this), tokenPerBlock, startBlock);
 
         // Transfer ownership of token to Masterchef
         token.transferOwnership(address(masterchef));
 
         // Setup initial pools
-        lpToken1.transfer(address(masterchef), 1000 ether);
+        // lpToken1.transfer(address(masterchef), 1000 ether);
         masterchef.add(1000, IERC20(address(lpToken1)));
         //    masterchef.add(2000, IERC20(address(lpToken2)));
 
@@ -65,23 +65,49 @@ contract MasterchefTest is Test {
         vm.stopPrank();
     }
 
-    function test_deposit() public {
+    function test_basicDepositWithdraw() public {
+        uint256 beforeBalanceAliceLpToken1 = lpToken1.balanceOf(alice);
+        uint256 beforeBalanceBobLpToken1 = lpToken1.balanceOf(bob);
+
         vm.prank(alice);
         masterchef.deposit(0, 1000 ether);
 
+        vm.roll(block.number + 1);
+
         vm.prank(bob);
-        masterchef.deposit(0, 1000 ether);
+        masterchef.deposit(0, 600 ether);
 
         vm.roll(block.number + 3);
 
-        uint256 beforeBalance = lpToken1.balanceOf(alice);
+        uint256 beforeBalanceAlice = token.balanceOf(alice);
 
         vm.prank(alice);
         masterchef.withdraw(0, 1000 ether / 2);
 
-        uint256 afterBalance = lpToken1.balanceOf(alice);
+        uint256 afterBalanceAlice = token.balanceOf(alice);
 
-        console2.log("beforeBalance", beforeBalance);
-        console2.log("afterBalance", afterBalance);
+        console2.log("beforeBalanceAlice", beforeBalanceAlice);
+        console2.log("afterBalanceAlice", afterBalanceAlice);
+        assertLt(beforeBalanceAlice, afterBalanceAlice);
+
+        uint256 beforeBalanceBob = token.balanceOf(bob);
+
+        vm.prank(bob);
+        masterchef.withdraw(0, 600 ether / 2);
+
+        uint256 afterBalanceBob = token.balanceOf(bob);
+
+        console2.log("beforeBalance", beforeBalanceBob);
+        console2.log("afterBalance", afterBalanceBob);
+        assertLt(beforeBalanceBob, afterBalanceBob);
+
+        vm.prank(alice);
+        masterchef.withdraw(0, 1000 ether / 2);
+
+        vm.prank(bob);
+        masterchef.withdraw(0, 600 ether / 2);
+
+        assertEq(beforeBalanceAliceLpToken1, lpToken1.balanceOf(alice));
+        assertEq(beforeBalanceBobLpToken1, lpToken1.balanceOf(bob));
     }
 }
