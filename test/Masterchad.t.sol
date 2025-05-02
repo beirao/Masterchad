@@ -195,7 +195,7 @@ contract MasterchadTest is Test {
         masterchad.withdraw(0, 200 ether + 1);
     }
 
-    function test_depositIntoAnUndifinedPool() public {
+    function test_depositIntoAnUndefinedPool() public {
         vm.expectRevert();
         vm.prank(alice);
         masterchad.deposit(100, 100 ether);
