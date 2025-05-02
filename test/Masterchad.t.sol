@@ -174,4 +174,30 @@ contract MasterchadTest is Test {
         assertEq(beforeBalanceAliceLpToken1, lpToken1.balanceOf(alice));
         assertEq(beforeBalanceBobLpToken1, lpToken1.balanceOf(bob));
     }
+
+    function test_tryToWithdrawMoreThanDeposited() public {
+        masterchad.add(1000, address(lpToken1));
+
+        vm.prank(alice);
+        masterchad.deposit(0, 100 ether);
+
+        vm.prank(bob);
+        masterchad.deposit(0, 200 ether);
+
+        vm.roll(block.number + 1);
+
+        vm.prank(alice);
+        vm.expectRevert();
+        masterchad.withdraw(0, 100 ether + 1);
+
+        vm.prank(bob);
+        vm.expectRevert();
+        masterchad.withdraw(0, 200 ether + 1);
+    }
+
+    function test_depositIntoAnUndifinedPool() public {
+        vm.expectRevert();
+        vm.prank(alice);
+        masterchad.deposit(100, 100 ether);
+    }
 }
